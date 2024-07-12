@@ -56,10 +56,26 @@ def to_JSON(tickerArray):
     with open('stock_data.json', 'w') as json_file:  
         json.dump(all_data, json_file, indent=4)
         
+def to_SQLite(tickerArray):
+    all_data = []
+    for ticker in tickerArray:
+        data = get_Data(ticker)
+        all_data.extend(data)
+    conn = sqlite3.connect('stock_data.db')
+    c = conn.cursor()
+    c.execute('CREATE TABLE stock_data (Ticker TEXT, Land TEXT, Revenue TEXT, NetIncome TEXT, OperatingIncome TEXT, EPS TEXT, StockPrices TEXT)')
+    for data in all_data:
+        c.execute('INSERT INTO stock_data VALUES (?, ?, ?, ?, ?, ?, ?)', (data['Ticker'], str(data['Land']), str(data['Revenue']), str(data['NetIncome']), str(data['OperatingIncome']), str(data['EPS']), str(data['StockPrices'])))
+    conn.commit()
+    conn.close()
+        
         
 tickerArray = ["YUM", "MCD", "CMG", "SBUX", "JACK"]
 # tickerArray = ["YUM"]
 to_JSON(tickerArray)
+to_SQLite(tickerArray)
     
+    
+
     
     
