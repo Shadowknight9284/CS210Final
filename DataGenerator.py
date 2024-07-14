@@ -28,10 +28,21 @@ def get_CompanyFacts(ticker):
     companyFacts = requests.get(f'https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json', headers=headers)
     return companyFacts.json()
 
+def get_LineItems_PD(ticker, form):
+    companyFacts = get_CompanyFacts(ticker)
+    final_fy = []
+    final_val = []
+    for i in companyFacts['facts']['us-gaap'][form]['units']['USD']:
+        final_fy.append(i['fy'])
+        final_val.append(i['val'])
+    final = pd.DataFrame({'fy': final_fy, 'val': final_val})
+    return final
+
 def get_LineItems(ticker, form):
     companyFacts = get_CompanyFacts(ticker)
-    companyData = companyFacts['facts']['us-gaap'][form]['units']
+    companyData = companyFacts['facts']['us-gaap'][form]['units']['USD']
     return companyData
+
 
 def get_Data(ticker):
     data = [
@@ -41,7 +52,6 @@ def get_Data(ticker):
             "Revenue": get_LineItems(ticker, "Revenues"),
             "NetIncome": get_LineItems(ticker, "NetIncomeLoss"),
             "OperatingIncome": get_LineItems(ticker, "OperatingIncomeLoss"),
-            "EPS": get_LineItems(ticker, "EarningsPerShareBasic"),
             "StockPrices": get_stock_prices(ticker)
         },
     ]
@@ -68,14 +78,15 @@ def to_SQLite(tickerArray):
         c.execute('INSERT INTO stock_data VALUES (?, ?, ?, ?, ?, ?, ?)', (data['Ticker'], str(data['Land']), str(data['Revenue']), str(data['NetIncome']), str(data['OperatingIncome']), str(data['EPS']), str(data['StockPrices'])))
     conn.commit()
     conn.close()
-        
-        
-tickerArray = ["YUM", "MCD", "CMG", "SBUX", "JACK"]
-# tickerArray = ["YUM"]
-to_JSON(tickerArray)
-to_SQLite(tickerArray)
-    
-    
 
-    
+        
+# tickerArray = ["YUM", "MCD", "CMG", "SBUX", "JACK"]
+tickerArray = ["MCD"]
+to_JSON(tickerArray)
+
+
+# MCD_Land_df = get_LineItems_PD("MCD", "Land")
+# MCD_Revenues_df = get_LineItems_PD("MCD", "Revenues")
+
+
     
