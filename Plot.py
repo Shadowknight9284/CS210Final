@@ -44,3 +44,33 @@ for i in range(len(Revenue_10K)):
             combined_data.append([Revenue_10K[i][0], Revenue_10K[i][1], Land_10K[j][1]])
         
 print(combined_data)
+
+
+year = [data[0] for data in combined_data]
+x = [data[1] for data in combined_data]
+y = [data[2] for data in combined_data]
+
+plt.scatter(x, y, c=year)
+plt.xlabel('Revenue')
+plt.ylabel('Land')
+plt.title('Scatter Plot')
+plt.colorbar(label='Year')
+
+# Add line of best fit
+z = np.polyfit(x, y, 1)
+p = np.poly1d(z)
+plt.plot(x, p(x), color='red')
+
+# Calculate R^2
+residuals = y - p(x)
+ss_res = np.sum(residuals**2)
+ss_tot = np.sum((y - np.mean(y))**2)
+r_squared = 1 - (ss_res / ss_tot)
+
+# Display formula and R^2
+formula = f'y = {z[0]}x + {z[1]}'
+r_squared_text = f'R^2 = {r_squared:.4f}'
+plt.text(0.05, 0.95, formula, transform=plt.gca().transAxes, fontsize=10, verticalalignment='top')
+plt.text(0.05, 0.90, r_squared_text, transform=plt.gca().transAxes, fontsize=10, verticalalignment='top')
+
+plt.show()
