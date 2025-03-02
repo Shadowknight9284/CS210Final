@@ -1,64 +1,67 @@
-import time
-import pandas_datareader as pdr
-import yfinance as yf
+from polygon import RESTClient
 import pandas as pd
-import requests
-import sqlite3
-import json
+from datetime import datetime, timedelta
+import time
 
-def get_stock_prices(ticker, period="1m", retries=3, delay=5):
-    for attempt in range(retries):
-        try:
-            # Try yfinance first
-            stock = yf.Ticker(ticker)
-            hist = stock.history(period=period)
-            if not hist.empty:
-                stock_prices = hist.reset_index().to_dict('records')
-                df = pd.DataFrame(stock_prices)
-                df['Date'] = pd.to_datetime(df['Date'])
-                df.to_json(f'data/stock/stock_prices_{ticker}.json', orient='records', date_format='iso')
-                return df
-            
-            # If yfinance fails, try pandas_datareader
-            end_date = pd.Timestamp.now()
-            start_date = end_date - pd.Timedelta(period)
-            df = pdr.get_data_yahoo(ticker, start=start_date, end=end_date)
-            if not df.empty:
-                df = df.reset_index()
-                df.to_json(f'data/stock/stock_prices_{ticker}.json', orient='records', date_format='iso')
-                return df
-            
-            raise ValueError(f"No price data found for ticker {ticker} (period={period})")
+def get_stock_prices(ticker, time_delta='1y', api_key='p59hS78e_nfVaO3aUBaLepJ_37aeN0Oj'):
+    # Create a RESTClient instance
+    client = RESTClient(api_key)
+    
+    # Calculate start_date and end_date based on time_delta
+    end_date = datetime.now()
+    if time_delta.endswith('y'):
+        years = int(time_delta[:-1])
+        start_date = end_date - timedelta(days=365*years)
+    elif time_delta.endswith('d'):
+        days = int(time_delta[:-1])
+        start_date = end_date - timedelta(days=days)
+    else:
+        raise ValueError("Invalid time_delta format. Use 'Xy' for years or 'Xd' for days, e.g., '5y' or '180d'")
+    
+    try:
+        # Get daily data
+        aggs = client.get_aggs(ticker, 1, "day", start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
         
-        except Exception as e:
-            print(f"Attempt {attempt + 1} failed for ticker '{ticker}'. Error: {e}")
-            if attempt < retries - 1:
-                print(f"Retrying in {delay} seconds...")
-                time.sleep(delay)
-            else:
-                print(f"Failed to get data for ticker '{ticker}' after {retries} attempts.")
-                return None
+        # Convert to pandas DataFrame
+        data = pd.DataFrame([
+            {
+                'Date': pd.Timestamp.fromtimestamp(agg.timestamp/1000),
+                'Open': agg.open,
+                'High': agg.high,
+                'Low': agg.low,
+                'Close': agg.close,
+                'Volume': agg.volume
+            } for agg in aggs
+        ])
+        
+        # Sort by date
+        data = data.sort_values('Date')
+        
+        # Save to JSON
+        data.to_json(f'data/polygon/stock_prices_{ticker}_{time_delta}.json', orient='records', date_format='iso')
+        
+        return data
+    
+    except Exception as e:
+        print(f"Error fetching data for {ticker}: {str(e)}")
+        return None
 
-# # Usage
-# tickers = ["YUM", "MCD", "CMG", "SBUX", "JACK"]  # Add your tickers here
 
-# for ticker in tickers:
-#     print(f"Processing {ticker}")
-#     stock_data = get_stock_prices(ticker)
-#     if stock_data is not None:
-#         print(f"Successfully retrieved data for {ticker}")
-#     else:
-#         print(f"Failed to retrieve data for {ticker}")
-#     time.sleep(2)  # Add a small delay between requests to avoid rate limiting
+tickers = [
+    "DPZ", 
+    "DRI", 
+    "JACK", 
+    "MCD", 
+    "PZZA", 
+    "QSR", 
+    "RRGB", 
+    "SBUX", 
+    "SHAK", 
+    "WEN", 
+    "WING", 
+    "YUM"
+]
 
-
-
-
-
-dat = yf.Ticker("MSFT")
-print("Info:", dat.info)
-print("Calendar:", dat.calendar)
-print("Analyst Price Targets:", dat.analyst_price_targets)
-print("Quarterly Income Statement:", dat.quarterly_income_stmt)
-print("History:", dat.history(period='1mo'))
-print("Option Chain Calls:", dat.option_chain(dat.options[0]).calls)
+for ticker in tickers:
+    print(f"Processing {ticker}")
+    get_stock_prices(ticker, "10y")

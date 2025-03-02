@@ -3,14 +3,71 @@ import pandas as pd
 import numpy as np 
 import json
 import matplotlib.pyplot as plt
+from alpha_vantage.timeseries import TimeSeries
 import yfinance as yf
 import sqlite3
+from datetime import datetime, timedelta
 
 headers = {'User-Agent': "pranavtikkawar@gmail.com"}
 companyTickers = requests.get('https://www.sec.gov/files/company_tickers.json', headers=headers)
 companyData = pd.DataFrame.from_dict(companyTickers.json(), orient='index')
 companyData['cik_str'] = companyData['cik_str'].apply(lambda x: str(x).zfill(10))
 companyData.to_csv('companyData.csv', index=False)
+
+def get_stock_prices_alpha(ticker, time_delta='1y', outputsize='full'):
+    # Your Alpha Vantage API key
+    api_key = 'PNMKBBX1K41GGD47'
+    
+    # Create a TimeSeries object
+    ts = TimeSeries(key=api_key, output_format='pandas')
+    
+    # Calculate start_date based on time_delta
+    if time_delta.endswith('y'):
+        years = int(time_delta[:-1])
+        start_date = datetime.now() - timedelta(days=365*years)
+    elif time_delta.endswith('d'):
+        days = int(time_delta[:-1])
+        start_date = datetime.now() - timedelta(days=days)
+    else:
+        raise ValueError("Invalid time_delta format. Use 'Xy' for years or 'Xd' for days, e.g., '5y' or '180d'")
+    
+    try:
+        # Get daily data
+        data, meta_data = ts.get_daily(symbol=ticker, outputsize=outputsize)
+        
+        # Check if 'Date' is in the index
+        if 'Date' not in data.index.names:
+            # If 'Date' is not in the index, it might be a column
+            if 'Date' in data.columns:
+                data = data.set_index('Date')
+            else:
+                # If 'Date' is neither in index nor columns, create a date index
+                data.index = pd.date_range(end=pd.Timestamp.now(), periods=len(data), freq='D')[::-1]
+                data.index.name = 'Date'
+        
+        # Rename columns
+        data.columns = ['Open', 'High', 'Low', 'Close', 'Volume']
+        
+        # Reset index to make date a column
+        data = data.reset_index()
+        
+        # Convert 'Date' to datetime if it's not already
+        data['Date'] = pd.to_datetime(data['Date'])
+        
+        # Filter data based on start_date
+        data = data[data['Date'] >= start_date]
+        
+        # Sort by date
+        data = data.sort_values('Date')
+        
+        # Save to JSON
+        data.to_json(f'data/stock/stock_prices_{ticker}_{time_delta}.json', orient='records', date_format='iso')
+        
+        return data
+    
+    except Exception as e:
+        print(f"Error fetching data for {ticker}: {str(e)}")
+        return None
 
 def get_stock_prices(ticker, period="5y"):
     stock = yf.Ticker(ticker)
@@ -57,7 +114,6 @@ def get_LineItems(ticker, form):
     companyFacts = get_CompanyFacts(ticker)
     companyData = companyFacts['facts']['us-gaap'][form]['units']['USD']
     return companyData
-
 
 def get_Land_Data(ticker):
     land_terms = ["Land", "LandAndImprovements", "RealEstate", "PropertyAndEquipment", "LandAndBuildings", "RealProperty", "LandHeldForDevelopment", "InvestmentProperty"]
@@ -142,7 +198,7 @@ def get_Data(ticker):
     except KeyError:
         total_assets = None
 
-    stock_prices = get_stock_prices(ticker)
+    # stock_prices = get_stock_prices(ticker)
 
     data = [
         {
@@ -158,12 +214,10 @@ def get_Data(ticker):
             "CostOfGoodsSold": cogs,
             "DepreciationAndAmortization": depreciation_amortization,
             "CapitalExpenditures": capex,
-            "TotalAssets": total_assets,
-            "StockPrices": stock_prices
+            "TotalAssets": total_assets
         },
     ]
     return data
-
 
 def to_JSON(tickerArray, exitJson = 'stock_data.json'):
     all_data = []
@@ -203,36 +257,26 @@ def to_SQLite(tickerArray):
     conn.close()
 
 
-        
-# tickerArray = ["YUM", "MCD", "CMG", "SBUX", "JACK"]
+
 tickers = [
-    "ARCO", 
-    "BLMN", 
-    "BRCC", 
-    "BROS", 
-    "CAKE", 
-    "CMG", 
-    "DPZ", 
-    "DRI", 
-    "JACK", 
-    "MCD", 
-    "PZZA", 
-    "QSR", 
-    "RRGB", 
-    "SBUX", 
-    "SHAK", 
-    "WEN", 
-    "WING", 
-    "YUM"
+    'CMG',
+    'MCD',
+    'SBUX',
+    'YUM'
 ]
 
 for ticker in tickers:
     print(f"Processing {ticker}")
-    # to_JSON([ticker], f'data/sec/foodsector_data_{ticker}.json')
-    get_stock_prices(ticker, "1d")
+    to_JSON([ticker], f'data/big5/stock_data{ticker}.json')
+    
+    
 
 
-
+# mcd = get_CompanyFacts("MCD")
+# with open('data/sec/mcd.json', 'w') as f:
+#     json.dump(mcd, f, indent=4)
+    
+    
 # MCD_Land_df = get_LineItems_PD("MCD", "Land")
 # MCD_Revenues_df = get_LineItems_PD("MCD", "Revenues")
 
