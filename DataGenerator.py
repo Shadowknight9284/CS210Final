@@ -14,7 +14,7 @@ companyData = pd.DataFrame.from_dict(companyTickers.json(), orient='index')
 companyData['cik_str'] = companyData['cik_str'].apply(lambda x: str(x).zfill(10))
 companyData.to_csv('companyData.csv', index=False)
 
-def get_stock_prices_alpha(ticker, time_delta='1y', outputsize='full'):
+def get_stock_prices_alpha(ticker, time_delta='10y', outputsize='full'):
     # Your Alpha Vantage API key
     api_key = 'PNMKBBX1K41GGD47'
     
@@ -61,7 +61,7 @@ def get_stock_prices_alpha(ticker, time_delta='1y', outputsize='full'):
         data = data.sort_values('Date')
         
         # Save to JSON
-        data.to_json(f'data/stock/stock_prices_{ticker}_{time_delta}.json', orient='records', date_format='iso')
+        data.to_json(f'data/big4stock/stock_prices_{ticker}_{time_delta}.json', orient='records', date_format='iso')
         
         return data
     
@@ -267,7 +267,7 @@ tickers = [
 
 for ticker in tickers:
     print(f"Processing {ticker}")
-    to_JSON([ticker], f'data/big5/stock_data{ticker}.json')
+    get_stock_prices_alpha([ticker], "10y")
     
     
 
